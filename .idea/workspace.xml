@@ -24,6 +24,8 @@
   <component name="ChangeListManager">
     <list default="true" id="8c636121-6e49-43ed-9d00-a2fbc2ba32d2" name="默认的" comment="更新">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/2.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/web_bot.py" beforeDir="false" afterPath="$PROJECT_DIR$/web_bot.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

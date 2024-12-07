@@ -1,19 +1,18 @@
-from  gptapi import ZhiPuApi
-a =  [{"role": "user","content": "你好，讯飞星火"}]
-b =  {
-        "model": "glm-4-flash" ,
-        "url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-        "APIkeys": "AAAAAAAAAAAAAAAAAA",
-        "max_context": 4096,
-        "parameters": {
-            "max_tokens": 4096,
-            "temperature": 0.5,
-            "stream": True
+from gptapi import GeminiApi
+s = {
+    "model": "gemini-1.5-flash",
+    "url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions" ,
+    "api_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAA"  ,
+    "api_versions": 'v1beta' ,
+    "proxy": "http://127.0.0.1:1081"  ,
 
-        }
-    }
+    "max_context": 4096  ,
+    "parameters": {
+    "max_tokens": 4096  ,
+"temperature": 0.5  ,
+"stream": False  }
 
-result = ZhiPuApi.generate_text(a,b)
-print(result)
-for item in result["data"]:
-    print(item)
+}
+text = [{"role": "user","content": "你好，gemini"}]
+a = GeminiApi.generate_text(text,s)
+print(a)

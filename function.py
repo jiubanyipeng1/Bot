@@ -5,7 +5,7 @@ import os
 import aiofiles
 import base64
 
-from gptapi import XunFeiApi, OpenAiApi, TongYiQianWen, ZhiPuApi
+from gptapi import XunFeiApi, OpenAiApi, TongYiQianWen, ZhiPuApi, GeminiApi
 
 
 # 异步写入聊天日志
@@ -113,6 +113,8 @@ async def start_chat(chat_data, name_api, config_api):
         return TongYiQianWen.generate_text(text, config_api)
     elif name_api == "bigmodel":
         return ZhiPuApi.generate_text(text, config_api)
+    elif name_api =='chat_gemini':
+        return GeminiApi.generate_text(text, config_api)
     return mes
 
 

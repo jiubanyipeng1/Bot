@@ -213,7 +213,7 @@ class SessionHandler:
                 self.cache_manager.update_nested_value(keys, data)
                 # 是否将聊天记录写入
                 if self.config['wx'].get('log_chat', False):
-                    chat_path = self.config['wx'].get('log_chat_path'+'/', './')
+                    chat_path = self.config['wx'].get('log_chat_path', './') + '/'
                     if len(keys) == 3:
                         path_name = keys[0] + '_' + keys[1] + '_' + keys[2] + '.log'  # wx_账号_private
                     else:
@@ -295,7 +295,7 @@ class SessionHandler:
                 self.cache_manager.update_nested_value(keys, data)
                 # 是否将聊天记录写入
                 if self.config['qq'].get('log_chat', False):
-                    chat_path = self.config['qq'].get('log_chat_path' + '/', './')
+                    chat_path = self.config['qq'].get('log_chat_path', './') + '/'
                     if len(keys) == 3:
                         path_name = keys[0] + '_' + keys[1] + '_' + keys[2] + '.log'  # wx_账号_private
                     else:

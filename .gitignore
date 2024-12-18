@@ -3,5 +3,6 @@
 /BotFile/
 /logs/
 /log/
+*/__pycache__/
+/napcat.29927.onekey/
 /__pycache__/
-/gptapi/__pycache__/

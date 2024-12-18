@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户登录</title>
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}" type="image/x-icon">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5; /* 可以自定义背景颜色 */
+        }
+
+        .login-container {
+            padding: 2rem;
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        form label,form input,form button {
+            margin-top: 10px;
+            font-size: 25px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>用户登录</h1>
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+        <form action="{{ url_for('login') }}" method="post">
+            <label for="username">账号:</label>
+            <input type="text" id="username" name="username" required>
+            <br>
+            <label for="password">密码:</label>
+            <input type="password" id="password" name="password" required>
+            <br>
+            <!-- 如果需要 Remember Me 功能 -->
+            <!-- <label for="remember_me">
+                <input type="checkbox" id="remember_me" name="remember_me">
+                Remember me
+            </label> -->
+
+            <button type="submit" style="float: right; margin-top: 20px;">登录</button>
+        </form>
+    </div>
+</body>
+</html>

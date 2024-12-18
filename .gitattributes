@@ -1,0 +1,2 @@
+napcat.29927.onekey/versions/9.9.16-29927/resources/app/wrapper.node filter=lfs diff=lfs merge=lfs -text
+napcat.29927.onekey/versions/9.9.16-29927/QQNT.dll filter=lfs diff=lfs merge=lfs -text

@@ -26,6 +26,6 @@ if __name__ == "__main__":
         logging.error(f"初始化失败: {e}")
     finally:
         # 确保在程序退出时关闭会话处理的线程池
-        if manager and manager.session_manager and manager.session_manager.session_handler:
-            manager.session_manager.session_handler.shutdown()
-
+        session_handler = getattr(getattr(manager, 'session_manager', None), 'session_handler', None)
+        if session_handler:
+            session_handler.shutdown()

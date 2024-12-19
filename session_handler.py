@@ -5,6 +5,7 @@ import json
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import functools
+import os
 
 from wcferry import Wcf, WxMsg
 from cache_manager import CacheManager
@@ -100,8 +101,10 @@ class SessionHandler:
             result = await function.text_generate_img(api_name, message_content, self.config['api'][api_name],
                                                       message_parameter[1:])
             if result['code']:
-                # 图片保存路径
-                save_path = function.filepath(f"{self.config['filepath']}/{keys[0]}/{keys[1]}/{keys[2]}/image/{result.get('filename','unknown.jpg')}")
+                # 保存图片的绝对路径 : filepath/平台/用户账号/公共/公共id/image/filename.jpg
+                save_path = function.filepath(os.path.join(
+                    self.config.get('filepath', './'), *keys, 'image', result.get('filename', 'unknown.jpg')
+                ))
                 # 保存图片
                 save = await function.write_img(save_path, result['data'])
                 if save['code']:
@@ -131,6 +134,7 @@ class SessionHandler:
 
         if mes['message_type'] == 'group':
             params['group_id'] = mes['group_id']
+            # 默认情况下，发送消息的时候，默认发送@提问者
             message.append({'type': 'at', 'data': {'qq': f'{mes["user_id"]}'}})
         else:
             params['user_id'] = mes['user_id']
@@ -214,18 +218,13 @@ class SessionHandler:
                 # 是否将聊天记录写入
                 if self.config['wx'].get('log_chat', False):
                     chat_path = self.config['wx'].get('log_chat_path', './') + '/'
-                    if len(keys) == 3:
-                        path_name = keys[0] + '_' + keys[1] + '_' + keys[2] + '.log'  # wx_账号_private
-                    else:
-                        path_name = keys[0] + '_' + keys[1] + '_' + keys[2] + '_' + keys[3] + '.log'  # wx_账号_group_群号
+                    path_name = '_'.join(keys) + '.log'
                     filepath = function.filepath(f"{chat_path}/{path_name}")
                     log_text = 'user' + '\n' + msg.content + '\n' + 'assistant' + '\n' + mes + '\n'
                     write_log = await function.write_log(filepath, log_text)
                     self.LOG.info(write_log['mes'])
 
         self._run_in_thread(process_message)
-        # future = self.executor.submit(lambda: asyncio.run(process_message()))
-        # return future
 
     def qq_process_message(self, mes:dict, ws, is_continue=False):
         """qq 会话信息处理"""
@@ -296,10 +295,7 @@ class SessionHandler:
                 # 是否将聊天记录写入
                 if self.config['qq'].get('log_chat', False):
                     chat_path = self.config['qq'].get('log_chat_path', './') + '/'
-                    if len(keys) == 3:
-                        path_name = keys[0] + '_' + keys[1] + '_' + keys[2] + '.log'  # wx_账号_private
-                    else:
-                        path_name = keys[0] + '_' + keys[1] + '_' + keys[2] + '_' + keys[3] + '.log'
+                    path_name = '_'.join(keys) + '.log'   # qq_账号_private.log
                     log_text = 'user' + '\n' + text + '\n' + 'assistant' + '\n' + mes_text + '\n'
                     filepath = function.filepath(f"{chat_path}/{path_name}")
                     write_log = await function.write_log(filepath, log_text)

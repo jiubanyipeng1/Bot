@@ -1,7 +1,17 @@
+import os
 
+import function
 
-async def a():
-    print("a")
+config = {
+    'filepath': './data',
+}
+keys = ['wx', 'p', 'c']
+# 假设这是 instruct_message 方法的一部分
+save_path = function.filepath(os.path.join(
+    config.get('filepath', './'),
+    *keys,
+    'image',
+     'unknown.jpg'
+))
 
-
-print(a())
+print(save_path)

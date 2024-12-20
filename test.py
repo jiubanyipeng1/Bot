@@ -1,31 +1,21 @@
-# import os
-# from gptapi import Grok
-#
-#
-# s = {
-#     "model": "grok-2-1212",
-#     "url": "https://api.x.ai/v1/chat/completions"  ,
-#     "api_key": "xai-v电饭锅单方事故森岛帆高送达方刚Gp" ,
-#     "proxy": "http://127.0.0.1:1081"  ,
-#     "max_context": 4096  ,
-#     "parameters":  {
-#     "max_tokens": 4096  ,
-#     "temperature": 0.5  ,
-#     "stream": False }
-# }
-# text = [{"role": "user","content": "你好，Grok"}]
-# result=  Grok.generate_text(text, s)
-# print(result)
-# if isinstance(result["data"], str):  # 处理非流式响应
-#     print(result["data"])
-# elif isinstance(result["data"], dict):
-#     print('报错')
-#     print(result)
-# elif hasattr(result["data"], '__iter__'):
-#     # 处理流式响应
-#     for item in result["data"]:
-#         print(item)
-#
 
+import os
 
+# 获取 napcat 文件夹及其所有子目录和文件
+napcat_files = []
+for root, dirs, files in os.walk('napcat.29927.onekey'):
+    for file in files:
+        source_path = os.path.join(root, file)
+        relative_path = os.path.relpath(root, 'napcat.29927.onekey')
+        # 确保 target_path 是相对于 napcat 的相对路径
+        target_path = os.path.join('napcat.29927.onekey', relative_path)
+        napcat_files.append((source_path, target_path))
 
+other_files = [('gptapi', '.'), ('cache_manager.py', '.'), ('configuration.py', '.'),
+               ('function.py', '.'), ('help.py', '.')
+, ('manager.py', '.'), ('qq_bot.py', '.'), ('session_handler.py', '.'),
+                ('session_manager.py', '.'), ('web_bot.py', '.'), ('weixin_bot.py', '.')]
+
+files = napcat_files + other_files
+
+print(files)

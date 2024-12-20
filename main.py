@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
     bot_config = load_config()
     if not bot_config:
-        logging.error("配置加载失败")
+        logging.error("配置加载失败！")
         time.sleep(5)
         exit(1)  # 使用非零状态码表示异常退出
     manager = None

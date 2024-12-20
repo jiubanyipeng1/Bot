@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
 import yaml
+import function
 
 
 def load_config():
     """ 配置文件的初始化，注意没有验证配置文件的可行性！"""
-    pwd = os.path.dirname(os.path.abspath(__file__))
+    pwd = function.filepath('./config.yaml')
+    print(f"配置文件路径地址： {pwd}")
     config = {}
     try:
-        with open(f"{pwd}/config.yaml", "rb") as fp:
+        with open(pwd, "rb") as fp:
             config = yaml.safe_load(fp)
     except FileNotFoundError:
         print('创建文件，如果是权限不足给赋予读写文件权限。\n创建配置文件中...')
         try:
-            with open('./config.yaml', 'w', encoding='utf-8') as f:
+            with open(pwd, 'w', encoding='utf-8') as f:
                 f.write(config_template)
                 print('文件创建完成，请填写配置文件信息！')
         except Exception as e:
@@ -127,10 +128,12 @@ api:
     model: "text-davinci-003"
     url: "https://api.chatgpt.com/v1/chat/completions"
     max_context: 4096  # 对话文本数据的最大长度（用户对话 + api接口回复 的文字)，当该键不存在默认值为4096
+    proxy: ""  # 代理地址，如果不需要代理，请删除该键或设置为空，参考：http://127.0.0.1:1081
     parameters:  # 参数，以下是填写官方给出的参数，具体请查看官方api的参数介绍：
       max_tokens: 4096
       temperature: 0.5
-
+      stream: false      #  是否启用流式返回，建议QQ和微信平台不要启用该功能，回复信息太快容易导致账号异常
+      
   chat_tyqw:  # 聊天对话 通义千问配置，注意，没有免费额度，新版没有进行测试！
     api_key: "sk-eAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     model: "qwen-plus"
@@ -161,14 +164,26 @@ api:
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"   # 由于国内问题网络，可以使用代理好的地址或使用下面的配置进行代理
     api_key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"  # api秘钥
     api_versions: 'v1beta'   # 暂未启用。官方api的版本接口，版本的区别官方介绍：https://ai.google.dev/gemini-api/docs/api-versions?hl=zh-cn#rest
-    proxy: "http://127.0.0.1:1081"  # 代理地址，如果不需要代理，请删除该键或设置为空
+    proxy: ""  # 代理地址，如果不需要代理，请删除该键或设置为空，参考：http://127.0.0.1:1081
 
     max_context: 4096   # 对话文本数据的最大长度（用户对话 + api接口回复 的文字)，当该键不存在默认值为4096
     parameters: # 参数，以下是填写官方给出的参数，具体请查看官方api的参数介绍：
       max_tokens: 4096   # 参考官方给出的参数
       temperature: 0.5  # 参考官方给出的参数
       stream: false      #  是否启用流式返回，建议QQ和微信平台不要启用该功能，回复信息太快容易导致账号异常
-
+  
+  chat_grok: # 聊天对话 grok配置
+    model: "grok-2-1212"
+    url: "https://api.x.ai/v1/chat/completions"  # 由于国内问题网络，可以使用代理好的地址或使用下面的配置进行代理
+    api_key: "xai-vEVPALAejlvU0SfeG9Djn5NL3E3a1nNNtGUcaHAkAoYwOiHSSOqaXWfVtzA7bJ54ZTAe6LYy9cXoSGGp"  # api秘钥
+    proxy: ""  # 代理地址，如果不需要代理，请删除该键或设置为空，参考：http://127.0.0.1:1081
+    max_context: 4096   # 对话文本数据的最大长度（用户对话 + api接口回复 的文字)，当该键不存在默认值为4096
+    
+    parameters: # 参数，以下是填写官方给出的参数，具体请查看官方api的参数介绍：
+      max_tokens: 4096   # 参考官方给出的参数
+      temperature: 0.5  # 参考官方给出的参数
+      stream: false     #  是否启用流式返回，建议QQ和微信平台不要启用该功能，回复信息太快容易导致账号异常
+  
   ocr_tyqw:
     api_key: "sk-eAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     url: "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
@@ -184,8 +199,11 @@ api:
       style: "<auto>"
       size: "1024*1024"
       n: 1
+      
   calculator_tywx: {}
+  
   pdf_extracter_tywx: {}
+  
   code_interpreter_tywx: {}
 
   text_to_image_xufei:   # 文本生成图片 讯飞配置

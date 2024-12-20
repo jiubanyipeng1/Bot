@@ -61,14 +61,9 @@ class SessionHandler:
             text_list_data.append({'role': 'user', 'content': content})  # 将本次的聊天缓存添加
             # 执行聊天对话的接口
             result = await function.start_chat(text_list_data, chat_api_name, api_config[chat_api_name])
-            if result['code']:
-                result['is_system'] = False
-            else:
-                result['is_system'] = True
-                self.LOG.error(result)
             return result
         self.LOG.error(f'chat_api 接口未配置或接口配置不正确！chat aip名称：" {chat_api_name} " 不存在')
-        return {'is_system': True, 'code': False, 'data': f'chat_api 接口未配置或接口配置不正确！chat aip名称：" {chat_api_name} " 不存在'}
+        return {'code': False, 'data': f'chat_api 接口未配置或接口配置不正确！chat aip名称：" {chat_api_name} " 不存在'}
 
     async def instruct_message(self, keys, content):
         """指令处理
@@ -107,10 +102,7 @@ class SessionHandler:
                 ))
                 # 保存图片
                 save = await function.write_img(save_path, result['data'])
-                if save['code']:
-                    save['is_system'] = False
-                    save['file_type'] = 'img'
-                    return save
+                save['file_type'] = 'img'
                 result = save
             # 这里一般是执行GPT错误或当参数不对时，顺便返回参数的使用帮助
             help_mes = help_operations.get('text_to_image_' + api_name, '无该参数的参考说明！')
@@ -155,7 +147,7 @@ class SessionHandler:
         #  是否继续进行
         if is_continue:
             # 这里需要验证信息类型，一般是指文件，进行文件的保存！
-            return {'is_system': True, 'code': True, 'data': '该功能暂未开发，请勿使用'}
+            return {'code': False, 'data': '该功能暂未开发，请勿使用'}
         # 异步处理
         async def process_message():
             if msg.content[:1] == '/':  # 是否存在指令
@@ -165,9 +157,24 @@ class SessionHandler:
                 # 仅聊天
                 task = self.chat_message(keys, msg.content)
                 result = await task
-            # 是否发送文件，如果这里存在必然是要发送信息
+
+            # 结果的状态 失败！
+            if not result.get('code', False):
+                self.LOG.info(result)
+                # 系统的报错信息，根据是否开启开关调试进行进行返回
+                if self.cache_manager.config.get('debug', False):
+                    wcf.send_text(result['data'], msg.roomid, msg.sender)
+                return
+
+            # 结果的状态 等待继续！
+            if result.get('continue', False):
+                # 这里应该执行 等待事件
+                return
+            # 以下是发送处理 后期优化成：发送信息列表，延时发送等功能集合。
+
+            # 是否发送文件 处理文件
             if result.get('file_type', False):
-                # 清空用户的继续缓存
+                # 清空用户的继续缓存，一般发送文件都是存在继续的
                 keys.append('continue')
                 self.cache_manager.update_nested_value(keys, False)
                 # 发送文件的类型
@@ -184,45 +191,36 @@ class SessionHandler:
                 else:
                     self.LOG.error(f'发送文件类型,没有该类型文件:{result.get("file_type", "")}')
                 return
+
             # 发送 文本信息
-            if result.get('is_system', True):  # 默认情况下系统信息
-                # 系统的提示信息都添加到日志中
-                self.LOG.info(result)
-
-                # 系统的提示信息，这里一般是指令信息，需要回复给对方
-                if result['code']:
-                    wcf.send_text(result['data'], msg.roomid, msg.sender)
-                else:
-                    # 系统的报错信息，根据是否开启开关调试进行
-                    if self.cache_manager.config.get('debug', False):
-                        wcf.send_text(result['data'], msg.roomid, msg.sender)
+            mes = ''
+            if isinstance(result["data"], str):  # 处理非流式响应
+                mes += result["data"]
+                wcf.send_text(mes, msg.roomid, msg.sender)
+            elif hasattr(result["data"], '__iter__'):
+                # 处理流式响应
+                for item in result["data"]:
+                    wcf.send_text(item, msg.roomid, msg.sender)
+                    mes += item
+            else:
+                self.LOG.error(f'发送文本信息,没有该类型文本:{result}')
                 return
-            else:  # 发送信息
-                mes = ''
-                if isinstance(result["data"], dict):  # 处理非流式响应
-                    mes += result["data"]
-                    wcf.send_text(mes, msg.roomid, msg.sender)
-                elif hasattr(result["data"], '__iter__'):
-                    # 处理流式响应
-                    for item in result["data"]:
-                        wcf.send_text(item, msg.roomid, msg.sender)
-                        mes += item
 
-                data = self.cache_manager.get_nested_value(keys)
-                data['continue'] = False
-                text_list_data = data['text_list']
-                text_list_data.append({"role": 'assistant', "content": mes})
-                data['text_list'] = text_list_data
-                # 更新缓存
-                self.cache_manager.update_nested_value(keys, data)
-                # 是否将聊天记录写入
-                if self.config['wx'].get('log_chat', False):
-                    chat_path = self.config['wx'].get('log_chat_path', './') + '/'
-                    path_name = '_'.join(keys) + '.log'
-                    filepath = function.filepath(f"{chat_path}/{path_name}")
-                    log_text = 'user' + '\n' + msg.content + '\n' + 'assistant' + '\n' + mes + '\n'
-                    write_log = await function.write_log(filepath, log_text)
-                    self.LOG.info(write_log['mes'])
+            data = self.cache_manager.get_nested_value(keys)
+            data['continue'] = False
+            text_list_data = data['text_list']
+            text_list_data.append({"role": 'assistant', "content": mes})
+            data['text_list'] = text_list_data
+            # 更新缓存
+            self.cache_manager.update_nested_value(keys, data)
+            # 是否将聊天记录写入
+            if self.config['wx'].get('log_chat', False):
+                chat_path = self.config['wx'].get('log_chat_path', './') + '/'
+                path_name = '_'.join(keys) + '.log'
+                filepath = function.filepath(f"{chat_path}/{path_name}")
+                log_text = 'user' + '\n' + msg.content + '\n' + 'assistant' + '\n' + mes + '\n'
+                write_log = await function.write_log(filepath, log_text)
+                self.LOG.info(write_log['mes'])
 
         self._run_in_thread(process_message)
 
@@ -237,7 +235,7 @@ class SessionHandler:
             keys.append('private')
             text = mes['raw_message']
         if is_continue:
-            return {'is_system': True, 'code': True, 'data': '该功能暂未开发，请勿使用'}
+            return {'code': False, 'data': '该功能暂未开发，请勿使用'}
 
         # 异步处理函数
         async def process_message():
@@ -249,7 +247,22 @@ class SessionHandler:
                 task = self.chat_message(keys, text)
                 result = await task
 
-            # 是否发送文件，如果这里存在必然是要发送信息
+            # 结果的状态 失败！
+            if not result.get('code', False):
+                self.LOG.info(result)
+                # 系统的报错信息，根据是否开启开关调试进行进行返回
+                if self.cache_manager.config.get('debug', False):
+                    mes_str = self.qq_send_process_message(mes, result)
+                    ws.send(mes_str)
+                return
+
+            # 结果的状态 等待继续！
+            if result.get('continue', False):
+                keys.append('continue')
+                self.cache_manager.update_nested_value(keys, True)
+                return
+
+           # 是否发送文件，如果这里存在必然是要发送信息
             if result.get('file_type', False):
                 # 清空用户的继续缓存
                 keys.append('continue')
@@ -257,53 +270,39 @@ class SessionHandler:
                 mes_str = self.qq_send_process_message(mes, result)
                 ws.send(mes_str)
                 return
-            # 发送 信息
-            if result.get('is_system', True):  # 默认情况下系统信息
-                # 系统的提示信息都添加到日志中
-                self.LOG.info(result)
 
-                # 系统的提示信息，这里一般是指令信息，需要回复给对方
-                if result['code']:
-                    mes_str = self.qq_send_process_message(mes,result)
+            mes_text = ''
+            if isinstance(result["data"], str):  # 处理非流式响应
+                mes_text += result["data"]
+                mes_str = self.qq_send_process_message(mes, result)
+                ws.send(mes_str)
+            elif hasattr(result["data"], '__iter__'):
+                # 处理流式响应
+                for item in result["data"]:
+                    mes_str = self.qq_send_process_message(mes, {'data':item})
                     ws.send(mes_str)
-                else:
-                    # 系统的报错信息，根据是否开启开关调试进行
-                    if self.cache_manager.config.get('debug', False):
-                        mes_str = self.qq_send_process_message(mes, result)
-                        ws.send(mes_str)
+                    mes_text += item
+            else:
+                self.LOG.error(f'发送文本信息,没有该类型文本:{result}')
                 return
-            else:  # 发送信息
-                mes_text = ''
-                if isinstance(result["data"], dict):  # 处理非流式响应
-                    mes_text += result["data"]
-                    mes_str = self.qq_send_process_message(mes, result)
-                    ws.send(mes_str)
-                elif hasattr(result["data"], '__iter__'):
-                    # 处理流式响应
-                    for item in result["data"]:
-                        mes_str = self.qq_send_process_message(mes, {'data':item})
-                        ws.send(mes_str)
-                        mes_text += item
 
-                data = self.cache_manager.get_nested_value(keys)
-                data['continue'] = False
-                text_list_data = data['text_list']
-                text_list_data.append ({"role": 'assistant', "content": mes_text})
-                data['text_list'] = text_list_data
-                # 更新缓存
-                self.cache_manager.update_nested_value(keys, data)
-                # 是否将聊天记录写入
-                if self.config['qq'].get('log_chat', False):
-                    chat_path = self.config['qq'].get('log_chat_path', './') + '/'
-                    path_name = '_'.join(keys) + '.log'   # qq_账号_private.log
-                    log_text = 'user' + '\n' + text + '\n' + 'assistant' + '\n' + mes_text + '\n'
-                    filepath = function.filepath(f"{chat_path}/{path_name}")
-                    write_log = await function.write_log(filepath, log_text)
-                    self.LOG.info(write_log['mes'])
+            data = self.cache_manager.get_nested_value(keys)
+            data['continue'] = False
+            text_list_data = data['text_list']
+            text_list_data.append ({"role": 'assistant', "content": mes_text})
+            data['text_list'] = text_list_data
+            # 更新缓存
+            self.cache_manager.update_nested_value(keys, data)  # 高并发的情况下会有bug，暂时不处理
+            # 是否将聊天记录写入
+            if self.config['qq'].get('log_chat', False):
+                chat_path = self.config['qq'].get('log_chat_path', './') + '/'
+                path_name = '_'.join(keys) + '.log'   # qq_账号_private.log
+                log_text = 'user' + '\n' + text + '\n' + 'assistant' + '\n' + mes_text + '\n'
+                filepath = function.filepath(f"{chat_path}/{path_name}")
+                write_log = await function.write_log(filepath, log_text)
+                self.LOG.info(write_log['mes'])
 
         self._run_in_thread(process_message)
-        # future = self.executor.submit(lambda: asyncio.run(process_message()))
-        # return future
 
     def web_process_message(self, ):
         """web 信息处理"""

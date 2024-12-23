@@ -147,15 +147,17 @@ class CacheManager:
             if isinstance(web_config['port'], int):
                 mes = 'auto_login 不是 bool 类型'
                 if isinstance(web_config['auto_login'], bool):
-                    mes = 'user_data 不是 dict 类型'
-                    if isinstance(web_config['user_data'], dict):
-                        mes = 'log_chat 不是 bool 类型'
-                        if isinstance(web_config['log_chat'], bool):
-                            mes = 'log_chat_path 不是 str 类型'
-                            if isinstance(web_config['log_chat_path'], str):
-                                mes = 'api 不是 dict 类型'
-                                if isinstance(web_config['api'], dict):
-                                    return True
+                    mes = 'auto_login 不是 bool 类型'
+                    if isinstance(web_config['auto_login'], bool):
+                        mes = 'secret_key 不是 str 类型'
+                        if isinstance(web_config['secret_key'], str):
+                            mes = 'log_chat 不是 bool 类型'
+                            if isinstance(web_config['log_chat'], bool):
+                                mes = 'log_chat_path 不是 str 类型'
+                                if isinstance(web_config['log_chat_path'], str):
+                                    mes = 'api 不是 dict 类型'
+                                    if isinstance(web_config['api'], dict):
+                                        return True
             self.LOG.error(f'web 配置错误：{mes}')
             return None
 

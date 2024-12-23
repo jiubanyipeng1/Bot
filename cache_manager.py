@@ -137,3 +137,28 @@ class CacheManager:
         except Exception as e:
             self.LOG.error(f'QQ配置错误：{e} \n {mes}')
             return None
+
+    def is_web_config(self):
+        """ 验证Web配置文件是否存在异常 """
+        mes = ''
+        try:
+            web_config = self.config["web"]
+            mes = 'port 不是int类型'
+            if isinstance(web_config['port'], int):
+                mes = 'auto_login 不是 bool 类型'
+                if isinstance(web_config['auto_login'], bool):
+                    mes = 'user_data 不是 dict 类型'
+                    if isinstance(web_config['user_data'], dict):
+                        mes = 'log_chat 不是 bool 类型'
+                        if isinstance(web_config['log_chat'], bool):
+                            mes = 'log_chat_path 不是 str 类型'
+                            if isinstance(web_config['log_chat_path'], str):
+                                mes = 'api 不是 dict 类型'
+                                if isinstance(web_config['api'], dict):
+                                    return True
+            self.LOG.error(f'web 配置错误：{mes}')
+            return None
+
+        except Exception as e:
+            self.LOG.error(f'web 配置错误：{e} \n {mes}')
+            return None

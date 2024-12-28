@@ -34,17 +34,17 @@ config_template = """######## 配置默认规则 #############
 # 如果对接的模块配置了另外的api名称，则该配置会覆盖全局的api配置
 # api功能名称代表的含义： chat（聊天对话）、text_to_image_api（文本生成图像）
 # 默认所有的api功能都是启用的，如果不想启用，设置为空或修改为api名称没有的，如修改为 "不启用"
-
+### 注意：在单行中，格式是：  键: 值     存在空格  ###
 ######## 配置默认规则结束 #############
 
 ######## 机器人配置 #############
-qq_bot: false   # QQ机器人开关 必填
-weixin_bot: false   # 微信机器人开关 必填
-web_bot: false   # 网页开关 必填
-log: "./log/"   # 程序运行日志保存地址 必填
-filepath: "./BotFile/"  # 程序运行过程中所产生的文件的保存地址，如文本生成图片，接收图片，其他文件等 必填
-debug: false  # 程序的调试开关，主要会显示一些更多的提示信息，比如 配置错误 会在对应的平台发出响应信息 必填
-admin_user:   # 平台管理员账号，只有包含在内的账号才能使用管理员功能，后期扩展管理使用  必填
+qq_bot: false   # QQ机器人开关  开启：true，关闭：false
+weixin_bot: false   # 微信机器人开关  开启：true，关闭：false
+web_bot: false   # 网页开关  开启：true，关闭：false
+log: "./log/"   # 程序运行日志保存地址 
+filepath: "./BotFile/"  # 程序运行过程中所产生的文件的保存地址，如文本生成图片，接收图片，其他文件等 
+debug: false  # 程序的调试开关，主要会显示一些更多的提示信息，比如 配置错误 会在对应的平台发出响应信息 
+admin_user:   # 平台管理员账号，只有包含在内的账号才能使用管理员功能，后期扩展管理使用  
   "qq": ["2956098898"]   # qq 对接平台 QQ账号 选填
   "wx": ["微信wid"]   # 微信对接平台 微信wid
   "web": [""]  # 网页对接平台  web账号
@@ -60,9 +60,9 @@ ppt_api: ""  # ppt 生成，暂未开发
 
 ######## QQ对接接口的配置 ########
 qq:
-  number: "2956098898"  # QQ账号,这里填写你的QQ机器人账号  必填
+  number: "2956098898"  # QQ账号,填写你的QQ机器人账号
   port: 3001   # napcat  的监听端口  必填
-  token: "jiubanyipeng"  # napcat 的鉴权密钥  必填
+  token: "jiubanyipeng"  # napcat 的鉴权密钥  可默认
 
   timeout_clear: 3600   # 最长等待响应秒数,在指令等待中如果超过这个时间没有收到消息，则自动清理账号的继续对话
   group_disabled: false  # 是否仅允许特定的群成员发送聊天信息响应，群名单`enable`配置，默认是全部允许，如果开启，必须配置群名单，否则在群聊中将不回应
@@ -97,11 +97,10 @@ wx:
 
 ######## web对接接口的配置  ########
 web:
-  port: 9999   # web服务端口
+  port: 9996   # web服务端口
   auto_login: true  # 开启自动登录，如果开启则直接是匿名登录，否则必须输入用户名密码登录
-  secret_key: "JiuBanYiPeng.20241222"   # 用于 flask 加密会话数据
-  user_data:
-    "账号": "密码"  # 登录账号密码，账号和密码都是字符串类型，管理员请以最上方为主。目前暂不开发web更多的功能
+  secret_key: "JiuBanYiPeng.20241222"   # 用于 flask 加密会话数据  #后面可能会设置成随机
+  user_data: {}  # 登录账号密码，如{"账号1":"密码1"}。后期开发的 后台功能由上方的管理员账号为主。
   log_chat: true   # 是否将聊天对话写入到日志中，可删除，默认是不保存
   log_chat_path: "./log/web/chat/"   # 聊天对话 日志文件的路径
   # api对接功能是否使用默认，如果不是请修改对应功能的名称
@@ -117,25 +116,25 @@ api:
   chat_xunfei:    # 聊天对话 讯飞配置
     model: "Lite"   # Lite、Pro、Pro-128K、Max、Max-32K和4.0 Ultra六个版本
     url: "https://spark-api-open.xf-yun.com/v1/chat/completions"
-    APIPassword: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    APIPassword: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"   # 讯飞api web密码
     max_context: 4096   # 对话文本数据的最大长度（用户对话 + api接口回复 的文字)，当该键不存在默认值为4096
     parameters:   # 参数，以下是填写官方给出的参数，具体请查看官方api的参数介绍：https://www.xfyun.cn/doc/spark/HTTP调用文档.html#_3-请求说明
-      max_tokens: 4096   # 参考官方给出的参数
-      temperature: 0.5  # 参考官方给出的参数
+      max_tokens: 4096   # 最大回复token字数 参考官方给出的参数
+      temperature: 0.5  # 随机偏移值 参考官方给出的参数
       stream: false      #  是否启用流式返回，建议QQ和微信平台不要启用该功能，回复信息太快容易导致账号异常
 
-  chat_openai:
-    api_key: "sk-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    model: "text-davinci-003"
-    url: "https://api.chatgpt.com/v1/chat/completions"
+  chat_openai:  # 聊天对话 openai配置
+    api_key: "sk-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"   # openai的api_key
+    model: "gpt-4o-mini"   # 模型名称
+    url: "https://api.openai.com/v1/chat/completions"   # 接口地址
     max_context: 4096  # 对话文本数据的最大长度（用户对话 + api接口回复 的文字)，当该键不存在默认值为4096
     proxy: ""  # 代理地址，如果不需要代理，请删除该键或设置为空，参考：http://127.0.0.1:1081
     parameters:  # 参数，以下是填写官方给出的参数，具体请查看官方api的参数介绍：
-      max_tokens: 4096
-      temperature: 0.5
+      max_tokens: 4096   # 最大回复token字数 参考官方给出的参数
+      temperature: 0.5  # 随机偏移值 参考官方给出的参数
       stream: false      #  是否启用流式返回，建议QQ和微信平台不要启用该功能，回复信息太快容易导致账号异常
       
-  chat_tyqw:  # 聊天对话 通义千问配置，注意，没有免费额度，新版没有进行测试！
+  chat_tyqw:  # 聊天对话 通义千问配置，注意，没有免费额度了，新版没有进行测试！
     api_key: "sk-eAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     model: "qwen-plus"
     url: "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
@@ -156,8 +155,8 @@ api:
     APIPassword: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     max_context: 4096   # 对话文本数据的最大长度（用户对话 + api接口回复 的文字)，当该键不存在默认值为4096
     parameters: # 参数，以下是填写官方给出的参数，具体请查看官方api的参数介绍：
-      max_tokens: 4096   # 参考官方给出的参数
-      temperature: 0.5  # 参考官方给出的参数
+      max_tokens: 4096   # 最大回复token字数 参考官方给出的参数
+      temperature: 0.5  # 随机偏移值 参考官方给出的参数
       stream: false      #  是否启用流式返回，建议QQ和微信平台不要启用该功能，回复信息太快容易导致账号异常
 
   chat_gemini: # 聊天对话 Gemini配置,注意：由于兼容问题，暂仅使用openai的模型的兼容接口
@@ -166,11 +165,10 @@ api:
     api_key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"  # api秘钥
     api_versions: 'v1beta'   # 暂未启用。官方api的版本接口，版本的区别官方介绍：https://ai.google.dev/gemini-api/docs/api-versions?hl=zh-cn#rest
     proxy: ""  # 代理地址，如果不需要代理，请删除该键或设置为空，参考：http://127.0.0.1:1081
-
     max_context: 4096   # 对话文本数据的最大长度（用户对话 + api接口回复 的文字)，当该键不存在默认值为4096
     parameters: # 参数，以下是填写官方给出的参数，具体请查看官方api的参数介绍：
-      max_tokens: 4096   # 参考官方给出的参数
-      temperature: 0.5  # 参考官方给出的参数
+      max_tokens: 4096   # 最大回复token字数 参考官方给出的参数
+      temperature: 0.5  # 随机偏移值 参考官方给出的参数
       stream: false      #  是否启用流式返回，建议QQ和微信平台不要启用该功能，回复信息太快容易导致账号异常
   
   chat_grok: # 聊天对话 grok配置
@@ -179,12 +177,21 @@ api:
     api_key: "xai-vEVPALAejlvU0SfeG9Djn5NL3E3a1nNNtGUcaHAkAoYwOiHSSOqaXWfVtzA7bJ54ZTAe6LYy9cXoSGGp"  # api秘钥
     proxy: ""  # 代理地址，如果不需要代理，请删除该键或设置为空，参考：http://127.0.0.1:1081
     max_context: 4096   # 对话文本数据的最大长度（用户对话 + api接口回复 的文字)，当该键不存在默认值为4096
-    
     parameters: # 参数，以下是填写官方给出的参数，具体请查看官方api的参数介绍：
-      max_tokens: 4096   # 参考官方给出的参数
-      temperature: 0.5  # 参考官方给出的参数
-      stream: false     #  是否启用流式返回，建议QQ和微信平台不要启用该功能，回复信息太快容易导致账号异常
-  
+      max_tokens: 4096   # 最大回复token字数 参考官方给出的参数
+      temperature: 0.5  # 随机偏移值 参考官方给出的参数
+      stream: false      #  是否启用流式返回，建议QQ和微信平台不要启用该功能，回复信息太快容易导致账号异常
+      
+  chat_xunfei_web: # 聊天对话 讯飞配置 web端专用
+    model: "Lite"   # Lite、Pro、Pro-128K、Max、Max-32K和4.0 Ultra六个版本
+    url: "https://spark-api-open.xf-yun.com/v1/chat/completions"
+    APIPassword: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    max_context: 4096   # 对话文本数据的最大长度（用户对话 + api接口回复 的文字)，当该键不存在默认值为4096
+    parameters: # 参数，以下是填写官方给出的参数，具体请查看官方api的参数介绍：https://www.xfyun.cn/doc/spark/HTTP调用文档.html#_3-请求说明
+      max_tokens: 4096   # 最大回复token字数 参考官方给出的参数
+      temperature: 0.5  # 随机偏移值 参考官方给出的参数
+      stream: false      #  是否启用流式返回，建议QQ和微信平台不要启用该功能，回复信息太快容易导致账号异常
+        
   ocr_tyqw:
     api_key: "sk-eAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     url: "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
@@ -227,16 +234,6 @@ api:
       n: 1
       noise_level: 300
       ref_prompt_weight: 0.3
-
-  chat_xunfei_web: # 聊天对话 讯飞配置 web端专用
-    model: "Lite"   # Lite、Pro、Pro-128K、Max、Max-32K和4.0 Ultra六个版本
-    url: "https://spark-api-open.xf-yun.com/v1/chat/completions"
-    APIPassword: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    max_context: 4096   # 对话文本数据的最大长度（用户对话 + api接口回复 的文字)，当该键不存在默认值为4096
-    parameters: # 参数，以下是填写官方给出的参数，具体请查看官方api的参数介绍：https://www.xfyun.cn/doc/spark/HTTP调用文档.html#_3-请求说明
-      max_tokens: 4096   # 参考官方给出的参数
-      temperature: 0.5  # 参考官方给出的参数
-      stream: True      #  启用流式返回
 """
 
 

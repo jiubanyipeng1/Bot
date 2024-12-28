@@ -1,139 +1,184 @@
-from flask import Flask, render_template,request
-from random import randint, choice
-from asyncio import run as asyncio_run
-from json import  loads as json_loads
-from os import makedirs as os_makedirs
-from time import localtime, time, strftime, sleep
-from gptapi import OpenAiApi, TongYiQianWen, XunFeiApi
-from requests import get as requests_get
-app = Flask(__name__)
+# -*- coding: utf-8 -*-
+import types
+from datetime import datetime, timedelta
+import logging
+from logging.handlers import TimedRotatingFileHandler
+import secrets
+from flask import Flask, session, request, redirect, url_for, flash, render_template, jsonify, Response, stream_with_context
+from flask_login import LoginManager, UserMixin, current_user, login_user, logout_user, login_required
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
+import functools
 
+import function
 
-# 异步写入文件
-async def write_json(file_path, data):
-    try:
-        with open(f'./BotLog/web/{file_path}.log', 'a', encoding='utf-8') as file:
-            file.write(data)
-    except PermissionError:
-        return {'code': False, 'mes': f'文件:{file_path}.log,无写入权限'}
-    except Exception as e:
-        return {'code': False, 'mes': e}
+class User(UserMixin):
+    """自定义User类，继承自UserMixin以获得默认实现的方法"""
+    def __init__(self, username, auto_login=False):
+        self.id = username
+        self.can_auto_login = auto_login
 
+def generate_secure_token(length=32):
+    return secrets.token_hex(length)
 
-def web_char_processor(ip, message):
-    # GPT的API对接使用
-    mes = {'code': False, 'mes': 'API对接函数错误'}
-    if bot_config['name_api'] == "xunfei_config":
-        XunFeiApi.main(api_config, message)
-        mes = {'code': True, 'mes': XunFeiApi.answer}
-        XunFeiApi.answer = ''  # 重新清空缓存
-    elif bot_config['name_api'] == "openai_config":
-        mes = OpenAiApi.generate_text(message, api_config)
-    elif bot_config['name_api'] == "tyqw_config":
-        mes = TongYiQianWen.generate_text(message, api_config)
-    print(mes)
-    if mes['code']:
-        # 这里是写入日志
-        if bot_config['bot_chat_log']:
-            log_time = strftime('%Y-%m-%d %H:%M:%S', localtime(time()))
-            mes_log = f"[{log_time}]  \n[user:{message[-1]}]\n[assistant:{mes['mes']}]\n"
-            asyncio_run(write_json(ip, mes_log))
-        return {"code": True, "mes": mes['mes']}
-    else:
-        return {"code": False, "mes": mes['mes']}
+class WEBBot:
+    def __init__(self, config, cache_manager, session_manager) -> None:
+        self.executor = ThreadPoolExecutor(max_workers=10)
 
+        self.config = config
+        self.cache_manager = cache_manager
+        self.session_manager = session_manager
 
-# 返回用户的会话id和token，用户的凭证和请求的凭证
-def random_number():
-    number = ''
-    token = ''
-    for i in range(4):
-        for ii in range(8):
-            chat = [chr(randint(48,57)), chr(randint(65,90)), chr(randint(97,122))]
-            chat_token = [chr(randint(48,57)), chr(randint(65,90)), chr(randint(97,122))]
-            number += choice(chat)
-            token += choice(chat_token)
-        if i < 3:
-            number += '-'
-    return number, token
+        # 配置文件的用户账号密码
+        self.users_db = self.config.get('web', {"user_data": {}})['user_data']
+        self.users_admin = self.config.get('admin_user', {'web': {}})['web']  # 管理员账号 列表
 
+        self.app = Flask('web_bot')
+        self.app.secret_key = self.config['web'].get('secret_key', "JiuBanYiPeng.20241222")
+        self.app.permanent_session_lifetime = timedelta(days=1)  # 设置session过期时间
 
-# 聊天首页视图
-def gpt_index():
-    # 优先从 X-Forwarded-For 请求头获取客户端 IP
-    client_ip = request.headers.get('X-Forwarded-For')
-    # 如果 X-Forwarded-For 请求头不存在，则使用 remote_addr 获取 IP
-    if not client_ip:
-        client_ip = request.remote_addr
-    api_key, token = random_number()
-    if not user_data.get(client_ip, False):
-        user_data[client_ip] = {"api_key": api_key,"token": token}
-    # {'127.0.0.1':{'api_key': 'MXY0zjgU-K8C0AO72-W5RGEJeq-9387k9cx', 'token': 'xlVOq68r5w1s56uXWN759b8N0kx0l5gy'}}
-    user_data[client_ip]['token'] = token   # 存储下一次允许请求的凭证
-    return render_template('index.html', api_key=user_data[client_ip]['api_key'], token=token)
+        # 初始化LoginManager并设置未登录时重定向到登录页面
+        self.login_manager = LoginManager()
+        self.login_manager.login_message = "请先登录以访问该页面。"
+        self.login_manager.init_app(self.app)
+        self.login_manager.login_view = 'login'
 
+        self.LOG = logging.getLogger("web_bot")
+        log_file = function.filepath(f'{self.config["log"]}/web_bot.log')  # 日志文件名称
+        handler = TimedRotatingFileHandler(log_file, when="D", interval=1, backupCount=7)
+        self.LOG.addHandler(handler)
 
-@app.route('/process_message', methods=['POST'])
-def process_message():
-    # 优先从 X-Forwarded-For 请求头获取客户端 IP
-    client_ip = request.headers.get('X-Forwarded-For')
-    # 如果 X-Forwarded-For 请求头不存在，则使用 remote_addr 获取 IP
-    if not client_ip:
-        client_ip = request.remote_addr
+        # 设置加载用户的回调函数
+        @self.login_manager.user_loader
+        def load_user(user_id):
+            user_data = self.users_db.get(user_id)
+            if user_data:
+                return User(user_id)
+            return None
 
-    data = json_loads(request.data.decode('utf-8'))
-    if not user_data.get(client_ip, False):
-        # 后期这里是未登录，修改为api_key就可以，在不考虑商业的情况应该是不用做
-        return {"code":False,"mes":f"请在首页中请求，获取不到ip {client_ip}"}
-    if not data.get('api_key', False):
-        return {"code":False,"mes":f"没有获取到api_key"}
-    if not data.get('token', False):
-        return {"code":False,"mes":f"没有获取到token"}
-    print(data['messages'][-1])
-    if user_data[client_ip]['api_key'] == data['api_key'] and user_data[client_ip]['token'] == data['token']:
-        messages = data['messages']
-        # gpt接口的对接
-        get_web_char_processor = web_char_processor(client_ip,messages)
-        if get_web_char_processor['code']:
-            # 创建用户下次请求的验证
-            new_token = random_number()[1]
-            # 更新用户请求的验证
-            user_data[client_ip]['token'] = new_token
-            return {"code":True, "mes":get_web_char_processor['mes'], "token": f"{new_token}"}
+        self._add_routes()
+        self.LOG.info(f'web_bot启动')
+        self.app.run(debug=self.config.get('debug', False), port=self.config['web']['port'], host='127.0.0.1')
+
+    def _add_routes(self):
+        # 定义路由和视图函数
+        @self.app.route('/', methods=['GET', 'POST'])
+        @login_required
+        def index():
+            """处理主页请求"""
+            if request.method == 'POST':
+                data = request.get_json()
+                if data is None:
+                    return jsonify({'code': False, 'error': '没有数据'}), 400
+                return self.process_message(data)
+            return render_template('home.html')
+
+        @self.app.errorhandler(404)
+        def page_not_found(error):
+            # 错误处理函数
+            return render_template('404.html', error=error), 404
+
+        @self.app.route('/login', methods=['GET', 'POST'])
+        def login():
+            """处理用户登录请求"""
+            if current_user.is_authenticated:
+                return redirect(url_for('index'))
+
+            if request.method == 'POST':
+                username = request.form.get('username')
+                password = request.form.get('password')
+                client_ip = next((ip for ip in request.headers.get('X-Forwarded-For', '').split(',') if ip.strip()),
+                                 request.remote_addr)
+                self.LOG.info(f"用户：{username} 尝试登录. IP:{client_ip}")
+                # 这里应该要添加验证 在短时间内禁用该ip地址访问和锁定该用户
+
+                if not username or not password:
+                    flash('请输入用户名和密码！')
+                    return render_template('login.html')
+
+                user_data = self.users_db.get(username, False)
+
+                if user_data and user_data == password:
+                    user_obj = User(username)
+                    login_user(user_obj)
+                    self.LOG.info(f"用户：{username} 登录成功. IP:{client_ip}")
+                    session['last_activity'] = datetime.now().timestamp()
+                    return redirect(url_for('index'))
+                else:
+                    flash('账号或密码不存在！')
+            else:
+                # 根据配置文件决定是否自动登录 没有登录且不是中index视图函数过来的
+                if not request.args.get('logout', False):
+                    flash('您已成功注销！')
+                    if self.config['web']['auto_login']:
+                        username = f'group-{generate_secure_token(16)}'
+                        self.users_db[username] = username
+                        user = User(username, True)
+                        self.users_db[username] = user  # 将新用户添加到模拟数据库
+                        self.LOG.info(f"自动登录 用户：{username}")
+                        login_user(user, remember=True)
+                        session['last_activity'] = datetime.now().timestamp()
+                        return redirect(url_for('index'))
+            return render_template('login.html')
+
+        @self.app.route('/logout', methods=['POST'])
+        @login_required
+        def logout():
+            """处理用户登出请求"""
+            logout_user()
+            return redirect(url_for('login',logout=True))
+
+        @self.app.before_request
+        def before_request():
+            session.permanent = True
+            if current_user.is_authenticated:
+                session.modified = True
+                session['last_activity'] = datetime.now().timestamp()
+
+            # 检查是否有超过24小时未活动的用户并登出
+            last_activity = session.get('last_activity')
+            if last_activity and datetime.now().timestamp() - last_activity > 86400:
+                logout_user()
+
+    def process_message(self, data):
+        """ 处理消息 """
+        # {'messages': [{'role': 'user', 'content': '你好'}, {'role': 'user', 'content': '我好'}],'instruct': '文本回答',session_id:'1234567890'}
+        if not data:
+            return jsonify({"code": False, "mes": "无效的 JSON 数据"}), 400
+        async def process():
+            session_id = data.get('session_id', False)
+            if not session_id:
+                session_id = generate_secure_token(16)
+            if data.get('instruct') == '文本回答':
+                if self.config['web']['api']['chat'] == 'default':
+                    name_api = self.config['chat_api']
+                else:
+                    name_api = self.config['web']['api']['chat']
+                config_api = self.config['api'].get(name_api, False)
+                if config_api:
+                    data_api = await function.start_chat(data['messages'], name_api, config_api)
+                    data_api['session_id'] = session_id
+                    return data_api
+            else:
+                return {"code": False, "mes": "未找到对应的API"}
+        result = self._run_in_thread(process).result()
+        if isinstance(result['data'], types.GeneratorType):
+            return Response(stream_with_context(result["data"]), content_type='text/plain')
         else:
-            return {"code":False, "mes":get_web_char_processor['mes']}
-    else:
-        return {"code":False,"mes":f"你的问题正在询问中，请稍等。\n或验证token或api_key失败，请正常访问！"}
+            return jsonify(result), 200
 
+    def _run_in_thread(self, async_func):
+        """ 辅助函数，用于在线程池中运行异步函数 """
+        @functools.wraps(async_func)
+        def wrapper():
+            # 确保每个线程有自己的事件循环
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(async_func())
+            finally:
+                loop.close()
+            return result
 
-# 用户数据凭证，后期可能会添加会话id，登录的处理应该不会做，后期做的话api_key就是登录成功后的
-user_data = {
-    # "192.168.1.1":{"api_key": api_key,"token": token}
-    # "admin":{"api_key": api_key,"token": token}
-}
-
-if __name__ == '__main__':
-    try:
-        os_makedirs('BotLog/web', exist_ok=True)
-        with open('setting_config.json', 'r', encoding='utf-8') as f:
-            bot_config = json_loads(f.read())
-        api_config = bot_config[bot_config['name_api']]
-        web_config = bot_config['web_config']
-        app.add_url_rule(f'/{web_config["path"]}', f'/{web_config["path"]}', gpt_index, methods=['GET'])
-        app.run(debug=True,port=web_config['port'])
-
-    except FileNotFoundError:
-        print('对接的配置文件：setting_config 出现故障，请检查！\n如果配置文件不存在，将会创建，如果是权限不足给赋予读写文件权限。\n创建配置文件中...')
-        try:
-            url_config = 'https://www.jiubanyipeng.com/laboratory/gpt_qqbot/setting_config.json'  # 为了方便后期的维护更新
-            setting_config = requests_get(url_config).text.replace('\r\n', '\n')  # 格式化为字符串，防止乱码和后期可能整改其它方案
-            with open('./setting_config.json', 'w', encoding='utf-8') as f:
-                f.write(setting_config)
-                print('文件创建完成，请填写配置文件信息！')
-                sleep(5)
-        except Exception as e:
-            print('请检查是否有读写权限，也可能是本地网络问题或远程文件不存在')
-            sleep(5)
-    except Exception as e:
-        print('错误，请检查，以下是报错信息：\n', e,'退出...')
-        sleep(5)
+        future = self.executor.submit(wrapper)
+        return future

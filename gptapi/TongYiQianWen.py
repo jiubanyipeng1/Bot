@@ -91,10 +91,9 @@ def generate_plugin(prompt, api_config, plug_name):
     }
     try:
         response = requests_post(api_config['url'], headers=headers, json=data)
-        data = response.json()
         if response.status_code != 200:
-            return {"code": False, "data": data, "hint": f'api接口返回的信息错误！\n 错误提示：{status_code.get(data["code"], "无")}'}
-        return {"code": True, "data": data}
+            return {"code": False, "data": response.text, "hint": f'api接口返回的信息错误！\n 错误提示：{status_code.get(data["code"], "无")}'}
+        return {"code": True, "data": response}
     except Exception as e:
         return {"code": False, "data": f'错误:{e}', "hint": '程序运行错误，可能是无法连接网络或接口内容返回问题!'}
 
@@ -130,7 +129,7 @@ def generate_ocr(prompt, api_config):
         response = requests_post(api_config['ocr']['url'], headers=headers, json=data)
         data = response.json()
         if response.status_code != 200:
-            return {"code": False, "data": data, "hint": f'api接口返回的信息错误！\n 错误提示：{status_code.get(data["code"], "无")}'}
+            return {"code": False, "data": response.text, "hint": f'api接口返回的信息错误！\n 错误提示：{status_code.get(data["code"], "无")}'}
         return {"code": True, "data": data}
     except Exception as e:
         return {"code": False, "data": f'错误:{e}', "hint": '程序运行错误，可能是无法连接网络或接口内容返回问题!'}

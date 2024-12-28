@@ -7,11 +7,11 @@ import websocket
 import subprocess
 import platform
 import time
-
+import threading
 import function
 from weixin_bot import WeiXinBot
 from qq_bot import QQBot
-# from web_bot import WBEBot
+from web_bot import WEBBot
 from cache_manager import CacheManager
 from session_manager import SessionManager
 
@@ -32,10 +32,22 @@ class Manager:
         self.napcat_proc = None  # napcat进程
         self.WeiXinBot = None  # weixin bot实例
         self.WEBBot = None # web bot实例
-        self.start_wx_bot()
-        self.start_qq_bot()
-        # self.start_web_bot()
 
+    def run_bots(self):
+        # 创建线程
+        web_bot_thread = threading.Thread(target=self.start_web_bot)
+        qq_bot_thread = threading.Thread(target=self.start_qq_bot)
+        wx_bot_thread = threading.Thread(target=self.start_wx_bot)
+
+        # 启动线程
+        web_bot_thread.start()
+        qq_bot_thread.start()
+        wx_bot_thread.start()
+
+        # 等待两个线程都执行完毕
+        web_bot_thread.join()
+        qq_bot_thread.join()
+        wx_bot_thread.join()
     def start_wx_bot(self):
         """启动微信 bot """
         if self.config.get('weixin_bot', False):
@@ -43,7 +55,9 @@ class Manager:
                 self.WeiXinBot = WeiXinBot(self.config, self.cache_manager, self.session_manager)
             else:
                 self.LOG.error('微信模块配置错误，请检查！')
-        return '未启动'
+        else:
+            self.LOG.info('微信 未设置启动！')
+        return
 
     def start_qq_bot(self):
         """ 启动qq bot """
@@ -73,17 +87,17 @@ class Manager:
                     }
                     f.write(json.dumps(data, ensure_ascii=False, indent=4))
                 try:
-                    # 循环6次，分别等待 10、20、30、40、50、60
-                    for i in range(1,7):
+                    # 循环30次，每次10秒
+                    for i in range(30):
                         status = self.is_napcat()
                         if status['status'] == 'ok':
                             self.LOG.info('qq bot 检查完成！开始启动')
                             self.QQBot = QQBot(self.config, self.cache_manager, self.session_manager)
-
+                            break
                         elif status == 'error':
                             self.LOG.error('napcat 插件 错误，请检查！')
                             return 'napcat 插件 错误，请检查！'
-                        time.sleep(i*10)
+                        time.sleep(10)
                     self.LOG.error('qq bot启动失败！与napcat插件连接失败！等待时间太久')
                     return 'qq bot启动失败！与napcat插件连接失败！等待时间太久'
                 except KeyboardInterrupt:
@@ -92,17 +106,23 @@ class Manager:
                 except Exception as e:
                     self.LOG.error(f'qq bot 启动失败！{str(e)}')
                     return str(e)
-
             else:
                 self.LOG.error('qq模块配置错误，请检查！')
                 return 'qq模块配置错误，请检查！'
-        return 'qq bot 未启用！'
+        else:
+            self.LOG.info('qq bot 未启用！')
+        return
 
     def start_web_bot(self):
         """ 启动 web_bot 插件程序。"""
-        # if config.get('web_bot', False):
-        #     self.WBEBot = WBEBot(self.cache_manager, self.session_manager)
-        pass
+        if self.config.get('web_bot', False):
+            if self.cache_manager.is_web_config():
+                self.WEBBot = WEBBot(self.config, self.cache_manager, self.session_manager)
+            else:
+                self.LOG.error('web模块配置错误，请检查！')
+        else:
+            self.LOG.info('web 未设置启动！')
+        return
 
     def start_napcat(self):
         """ 启动 napcat 插件程序。启动成功返回 True，否则返回 False"""
@@ -117,12 +137,8 @@ class Manager:
                 proc = subprocess.Popen(
                     cmd,
                     creationflags=subprocess.CREATE_NEW_CONSOLE,  # 创建新的控制台窗口
-                    # stdout=subprocess.PIPE,
-                    # stderr=subprocess.PIPE,
-                    # text=True,  # 自动解码输出为字符串
-                    # encoding='utf-8'
                 )
-                self.LOG.info(f"插件程序已启动，PID: {proc.pid}")
+                self.LOG.info(f"对接QQ插件程序NapCat已启动，PID: {proc.pid}")
                 self.napcat_proc = proc  # 设置进程对象
                 return True
 

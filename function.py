@@ -87,27 +87,26 @@ async def start_chat(chat_data, name_api, config_api):
     :param config_api: api的配置
     :return:数据都是以字典返回，{'code': 布尔类型，本次对接状态, 'data': 接口返回的内容信息内容}
     """
-    mes = {'code': False, 'mes': f'API对接函数（function）错误,没有该api名称的配置文件：{name_api}'}
+    mes = {'code': False, 'mes': f'API对接函数（function）错误,没有该api名称的配置文件：{name_api}','info':'function模块返回'}
     # 检查聊天信息的长度 如果长度过长会截最前面的会话信息，默认计算的大小为 4096
     max_context = config_api.get('max_context', 4096)
     text = checklen(chat_data, max_context)
-    # 执行，后期使用函数将其包含执行
-    if name_api == "chat_xunfei":
-        mes = await XunFeiApi.generate_text(text, config_api)
-    elif name_api == "chat_openai":
-        return OpenAiApi.generate_text(text, config_api)  # 发送数据并返回答案,返回的是字典
-    elif name_api == "chat_tyqw":
-        return TongYiQianWen.generate_text(text, config_api)
-    elif name_api == "bigmodel":
-        return ZhiPuApi.generate_text(text, config_api)
-    elif name_api =='chat_gemini':
-        return GeminiApi.generate_text(text, config_api)
+    api_data ={
+        "chat_xunfei": XunFeiApi.generate_text,
+        "chat_openai": OpenAiApi.generate_text,
+        "chat_tyqw": TongYiQianWen.generate_text,
+        "bigmodel": ZhiPuApi.generate_text,
+        "chat_gemini": GeminiApi.generate_text,
+        "chat_xunfei_web":XunFeiApi.generate_text,
+    }
+    data = api_data.get(name_api, None)
+    if data:
+        mes = await data(text, config_api)
     return mes
-
 
 async def text_generate_img(api_name, text, config_api, keys):
     """ 文本生成图像 对接模块 """
-    mes = {'code': False, 'mes': f'API对接函数（function）错误,没有该api名称的配置文件：{api_name}'}
+    mes = {'code': False, 'mes': f'API对接函数（function）错误,没有该api名称的配置文件：{api_name}','info':'function模块返回'}
     # 检查聊天信息的长度 如果长度过长会截最前面的会话信息，默认计算的大小为 4096
     # 执行，后期使用函数将其包含执行
     if api_name == "text_to_image_xufei":

@@ -22,6 +22,7 @@ if __name__ == "__main__":
     manager = None
     try:
         manager = Manager(bot_config)
+        manager.run_bots()
     except Exception as e:
         logging.error(f"初始化失败: {e}")
     finally:
@@ -29,3 +30,4 @@ if __name__ == "__main__":
         session_handler = getattr(getattr(manager, 'session_manager', None), 'session_handler', None)
         if session_handler:
             session_handler.shutdown()
+        exit()

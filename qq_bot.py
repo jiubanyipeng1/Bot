@@ -19,7 +19,7 @@ class QQBot:
         handler = TimedRotatingFileHandler(log_file, when="D", interval=1, backupCount=7)
         self.LOG.addHandler(handler)
         self.cache_manager.set_user('qqid', self.config['qq']['number'])
-        websocket.enableTrace(self.config.get('debug', False))  # 启用或禁用WebSocket的调试信息
+        websocket.enableTrace(self.config.get('debug', False))  # 启用或禁用WebSocket的调试信息，会引起web未启用，应该是被堵塞了，暂未解决
         self.ws = None
         self._start_ws()
         self.reconnect_interval = 5  # 设置重连间隔时间（秒）

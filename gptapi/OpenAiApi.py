@@ -4,7 +4,7 @@ import requests
 import json
 
 # 聊天对话
-def generate_text(prompt,api_config):
+async def generate_text(prompt,api_config):
     """
     :param prompt: 历史对话内容，[{},{}]
     :param api_config: ChatGPT的API配置信息

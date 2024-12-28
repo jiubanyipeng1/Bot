@@ -1,30 +1,7 @@
 # -*- coding: utf-8 -*-
 # 对接ChatGPT
-from requests import post as requests_post
-
-
-def getlength(text):  # 字符串计算
-    length = 0
-    for content in text:
-        temp = content["content"]
-        leng = len(temp)
-        length += leng
-    return length
-
-
-def checklen(text, max_context):  # 字符串列表删除
-    checklen_len = len(text)
-    text_len = 0
-    checklen_text = text
-    while (getlength(checklen_text) > max_context):
-        text_len += 1
-        if text_len == checklen_len:
-            txt = checklen_text[-1]['content'][:max_context]
-            checklen_text[-1]['content'] = txt
-        else:
-            del checklen_text[0]
-    return checklen_text
-
+import requests
+import json
 
 # 聊天对话
 def generate_text(prompt,api_config):
@@ -33,40 +10,51 @@ def generate_text(prompt,api_config):
     :param api_config: ChatGPT的API配置信息
     :return: 返回聊天系统的对话
     """
-    try:
-        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_config['api_key']}"}
-        prompt = checklen(prompt, api_config['max_context'])
-        data = {
-            "messages": prompt,
-            "model": api_config['model'],
-            "max_tokens": api_config['max_tokens'],
-            "temperature": api_config['temperature'],
+    url = api_config.get('url', 'https://api.openai.com/v1/chat/completions')
+    model = api_config.get('model', 'gpt-4o-mini')
+    parameters = api_config.get('parameters', {})
+    parameters['model'] = model
+    parameters['messages'] = prompt
+    stream = parameters.get('stream', False)
+    header = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_config.get('api_key', '')}"
+    }
+    if api_config.get('proxy', '') != '':
+        proxies = {
+            'http': api_config.get('proxy', False),
+            'https': api_config.get('proxy', False),
         }
-        try:
-            response = requests_post(api_config['url'], headers=headers, json=data)
-        except Exception as e:
-            return {"code": False, "data": f'连接不上 {api_config["url"]} 的服务器，可能是网络问题！ 请更换代理！\n {e}'}
-        if response.status_code == 200:
-            completions = response.json()["choices"][0]['message']["content"]  # 获取信息内容
-            if response.json()["usage"]['completion_tokens'] < data['max_tokens']:
-                return {"code": True, "data": completions}
-            else:
-                return {"code": True, "data": completions + f'\n 回复太多，仅显示部分！仅显示{api_config["max_tokens"]}个token'}
-        if response.status_code == 401:
-            if response.json()['error']['code'] is None:
-                return {"code": False, "data": f'请填写api_key！\n\n{response.text}'}
-            if response.json()['error']['code'] == 'invalid_api_key':
-                return {"code": False, "data": f'api_key不对，请检查！\n\n{response.text}'}
-            return {"code": False, "data": f'错误，地址：{api_config["url"]}\n\n提示信息：\n\n{response.text}'}
-        if response.status_code == 400:
-            return {"code": False, "data": f'信息有误或返回太大！返回信息： {response.text}'}
-        if response.status_code == 429:
-            return {"code": False, "data": 'api没有额度或其他：' + response.json()["error"]["message"]}
-        if response.status_code == 404:
-            return {"code": False, "data": '该模型可能不支持：' + response.json()["error"]["message"]}
-        return {"code": False, "data": f'api返回的信息好像有问题，信息返回：{response.text}'}
+    else:
+        proxies = None
+    try:
+        if stream:
+            response = requests.post(url, headers=header, json=parameters, stream=True,proxies=proxies)
+            response.encoding = "utf-8"
+            def stream_response():
+                for line in response.iter_lines(decode_unicode="utf-8"):
+                    if line.startswith('data: '):
+                        if line == 'data: [DONE]':  # 验证是否结束
+                            break
+                        data = json.loads(line[6:])
+                        if data['choices'][0]['delta'].get('content',False):
+                            yield data['choices'][0]['delta']['content']
+            if response.status_code != 200:  # 这里失败的一般是配置有问题
+                return {'code': False, "data": response.text, 'info': 'openai的配置接口错误，请检查配置文件！'}
+
+            return {'code': True, "data": stream_response(), 'info': 'openai聊天接口返回'}
+        else:
+            response = requests.post(url, headers=header, json=parameters,proxies=proxies)
+            if response.status_code != 200:  # 这里失败的一般是配置有问题
+                return {'code': False, "data": response.text, 'info': 'openai的配置接口错误，请检查配置文件！'}
+            return {'code': True, "data": response.json()["choices"][0]['message']["content"],'info': 'openai聊天接口返回'}
+
+    except requests.exceptions.RequestException as e:
+        return {'code': False, "data": str(e), 'info': '可能是网络问题，或配置文件的url地址不对！'}
+
     except Exception as e:
-        return {"code": False, "data": f'对接ChatGPT 程序出错了！暂时不清楚情况！{e}'}
+        return {'code': False, "data": str(e), 'info': '程序报错！有可能openai口返回的数据格式不对！'}
+
 
 
 # 图片生成

@@ -56,7 +56,7 @@ async def generate_text(text, config_api) -> dict:
         else:
             response = requests.post(url, headers=header, json=parameters,proxies=proxies)
             if response.status_code != 200:  # 这里失败的一般是配置有问题
-                return {'code': False, "data": response.json(), 'info': 'gemini的配置接口错误，请检查配置文件！'}
+                return {'code': False, "data": response.text, 'info': 'gemini的配置接口错误，请检查配置文件！'}
 
             return {'code': True, "data": response.json()['choices'][0]['message']['content'],'info': 'gemini聊天接口返回'}
 

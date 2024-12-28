@@ -169,7 +169,7 @@ async def generate_image(api_config, function_name):
                 print(f'任务:{task_id}，取消任务失败！接口返回信息：\n {cancel_task.text}')
             else:
                 print(f'任务:{task_id}，取消成功！')
-            return {"code": False, "mes": f'等待图片生成时间超时', "hint": '等待图片生成时间超时'}
+            return {"code": False, "data": f'等待图片生成时间超时', "hint": '等待图片生成时间超时'}
 
     # 运行任务请求
     async def run_request(url, data):
@@ -178,7 +178,7 @@ async def generate_image(api_config, function_name):
             data = response.json()
             # print(data)
             if response.status_code != 200:
-                return {"code": False, "mes": data,
+                return {"code": False, "data": data,
                         "hint": f'api接口返回的信息错误！\n 错误提示：{status_code.get(data["code"], "无")}'}
             get_result = await run_get_result(data['output']['task_id'])
             return get_result

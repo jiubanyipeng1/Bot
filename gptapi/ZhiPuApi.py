@@ -45,18 +45,18 @@ async def generate_text(text, config_api) -> dict:
                         yield data
 
             if response.status_code != 200:  # 这里失败的一般是配置有问题
-                return {'code': False, "data": response.json(), 'info': '智谱的配置接口错误，请检查配置文件！'}
+                return {'code': False, "data": response.text, 'info': '智谱的配置接口错误，请检查配置文件！'}
 
             return {'code': True, "data": stream_response(), 'info': '智谱聊天接口返回'}
         else:
             response = requests.post(url, headers=header, json=parameters)
             if response.status_code != 200:  # 这里失败的一般是配置有问题
-                return {'code': False, "data": response.json(), 'info': '智谱的配置接口错误，请检查配置文件！'}
+                return {'code': False, "data": response.text, 'info': '智谱的配置接口错误，请检查配置文件！'}
 
             if response.json().get('code', 99) == 0:
                 return {'code': True, "data": response.json()['choices'][0]['message']['content']}
             else:
-                return {'code': False, "data": response.json(),
+                return {'code': False, "data": response.text,
                         'info': '智谱接口错误返回错误，请求速度太快或额度不足等，请查看详情'}
 
     except requests.exceptions.RequestException as e:

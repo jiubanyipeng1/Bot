@@ -82,7 +82,20 @@
             font-size: 16px;
         }
         #function-menu {
-
+            position: fixed;
+            top: 5px;
+            right: 0;
+            margin-right: 10px; /* 调整右侧间距 */
+            padding: 5px 10px;
+            background-color: #ff4d4d; /* 红色背景 */
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            z-index: 1000; /* 确保按钮在其他内容之上 */
+        }
+        #function-menu:hover {
+            background-color: #cc0000; /* 鼠标悬停时改变颜色 */
         }
     </style>
 </head>
@@ -92,7 +105,11 @@
         <!-- 新建会话 -->
         <!-- 文本生成图片  -->
         <!-- 背景生成图片  -->
-
+        <!-- 登出按钮或链接 -->
+        <button onclick="logoutUser()">退出登录</button>
+        <p>{{ current_user.id }}</p>
+        <!-- 或者使用链接 -->
+        <!-- <a href="#" onclick="logoutUser(); return false;">Logout</a> -->
     </div>
     <div class="chat-container" id="chat-container">
         <!-- Message containers will be dynamically added here -->
@@ -104,6 +121,12 @@
             <button type="submit" id="submit-btn">提问</button>
         </div>
     </form>
+
+    <!-- 隐藏的登出表单 -->
+    <form id="logoutForm" action="{{ url_for('logout') }}" method="POST">
+        <!--  暂时不做csrf安全验证  -->
+    </form>
+
 <script>
     var inputBox = document.getElementById('input-box');
     var user_message = [];  // 仅前端存储对话聊天，不在后端存储
@@ -148,7 +171,8 @@
             user_message.push({"role": "user", "content": message});
             var submit_data = {
                 messages:user_message,
-                instruct:'文本回答'
+                instruct:'文本回答',
+                //session_id:session_id
             }
             sendToBackend(submit_data);
             inputBox.value = '';
@@ -190,29 +214,56 @@
         chatContainer.appendChild(systemMessageDiv);
         scrollToBottom();  // 对话滚动到底部
     }
-    function sendToBackend(submit_data) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/', true);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                response = JSON.parse(xhr.responseText); // 将数据转为字典
-                if (response['code']){
-                    // 更新对话记录
-                    user_message.push({"role": "assistant", "content": response['mes']});
-                    displaySystemMessage(response['mes']);
-                }else{// 这里是系统验证不通过的
-                    displaySystemMessage('错误：' + response['mes']);
-                    user_message.pop();  // 将本次的用户对话删除
+     function sendToBackend(submit_data) {
+        let text = '';
+        fetch('/',{method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(submit_data) })
+        .then(response => {
+            if (response.headers.get('content-type') === 'text/plain') {
+                // 处理流式文本响应
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let done = false;
+                displaySystemMessage('');  // 先添加一个空的元素
+                var chatContainer = document.querySelectorAll('.message-container.system-message');
+                var lastSystemMessage = chatContainer[chatContainer.length - 1].querySelector('pre');
+                function readStream() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            console.log('异步处理结束');
+                            user_message.push({"role": "assistant", "content": text});
+                            return;
+                        }
+                        // 解码并处理每次接收到的数据块
+                        const chunk = decoder.decode(value, { stream: true });
+                        text += chunk;
+                        lastSystemMessage.textContent += chunk; // 使用 += 来连续插入文本
+                        console.log(chunk);
+                        console.log(text);
+                        // 继续读取下一个数据块
+                        readStream();
+                    }).catch(error => console.error('Error reading stream:', error));
                 }
+                readStream(); // 开始读取流
+            } else {
+              // 如果不是流式响应，则正常解析JSON
+              return response.json().then(data =>{
+                user_message.push({"role": "assistant", "content": data.data});
+                displaySystemMessage(data.data);
+               console.log(data,user_message)
+               });
             }
-        };
-        xhr.send(JSON.stringify(submit_data));
+        }).catch(error => console.error('Error:', error));
     }
     // 将聊天内容滚动到底部
     function scrollToBottom() {
         var chatContainer = document.getElementById('chat-container');
         chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+    // 用户退出登录处理
+    function logoutUser() {
+        if (confirm('是否确认退出登录？')) {
+            document.getElementById('logoutForm').submit();
+        }
     }
 </script>
 </body>

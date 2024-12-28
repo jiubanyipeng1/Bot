@@ -30,6 +30,15 @@
     </style>
 </head>
 <body>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <ul>
+            {% for message in messages %}
+              <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    {% endwith %}
     <div class="login-container">
         <h1>用户登录</h1>
         {% if error %}
@@ -42,11 +51,7 @@
             <label for="password">密码:</label>
             <input type="password" id="password" name="password" required>
             <br>
-            <!-- 如果需要 Remember Me 功能 -->
-            <!-- <label for="remember_me">
-                <input type="checkbox" id="remember_me" name="remember_me">
-                Remember me
-            </label> -->
+
 
             <button type="submit" style="float: right; margin-top: 20px;">登录</button>
         </form>

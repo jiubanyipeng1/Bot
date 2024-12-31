@@ -87,21 +87,20 @@ class Manager:
                     }
                     f.write(json.dumps(data, ensure_ascii=False, indent=4))
                 try:
-                    # 循环30次，每次10秒
-                    for i in range(30):
-                        status = self.is_napcat()
-                        if status['status'] == 'ok':
-                            self.LOG.info('qq bot 检查完成！开始启动')
-                            self.QQBot = QQBot(self.config, self.cache_manager, self.session_manager)
-                            break
-                        elif status == 'error':
-                            self.LOG.error('napcat 插件 错误，请检查！')
-                            return 'napcat 插件 错误，请检查！'
-                        time.sleep(10)
-                    self.LOG.error('qq bot启动失败！与napcat插件连接失败！等待时间太久')
-                    return 'qq bot启动失败！与napcat插件连接失败！等待时间太久'
+                    status = self.is_napcat()
+                    if status['status'] == 'ok':
+                        self.LOG.info('qq bot 检查完成！开始启动')
+                        self.QQBot = QQBot(self.config, self.cache_manager, self.session_manager)
+                    elif status['status'] == 'retry':
+                        self.LOG.info('napcat 插件 状态异常，10 秒后 重试！')
+                        time.sleep(10)  # 等待 10 秒
+                        self.start_qq_bot()  # 重试
+                    elif status['status'] == 'error':
+                        self.LOG.error('napcat 插件 错误，请检查！')
+                        return 'napcat 插件 错误，请检查！'
                 except KeyboardInterrupt:
                     # self.shutdown()
+                    self.LOG.info('用户已手动关闭 QQ bot 程序！')
                     return '关闭机器人'
                 except Exception as e:
                     self.LOG.error(f'qq bot 启动失败！{str(e)}')
@@ -153,7 +152,7 @@ class Manager:
     def is_napcat_running(self):
         """ 检查 napcat 进程是否正在运行 """
         if self.napcat_proc is None:
-            self.LOG.warning("napcat 进程尚未启动")
+            self.LOG.info("napcat 进程尚未启动")
             return False
 
         return_code = self.napcat_proc.poll()
@@ -189,9 +188,8 @@ class Manager:
 
         except (websocket._exceptions.WebSocketBadStatusException, ConnectionRefusedError) as e:
             self.LOG.error(f"无法连接到WebSocket服务器：{str(e)}")
-
             if not self.is_napcat_running():
-                self.LOG.error("尝试重新启动 napcat 进程...")
+                self.LOG.error("尝试启动 napcat 进程...")
                 if self.start_napcat():
                     return {'status': 'retry'}
                 else:
